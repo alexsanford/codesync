@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -e
+
+## Usage: codesync [targetfile]
+
+targetfile='.codesync-target'
+
+if [ ! -z $1 ]
+then
+  targetfile=$1
+fi
+
+if [ ! -e $targetfile ]
+then
+  echo "Cannot find $targetfile file!"
+  exit 1
+fi
+
+function do_sync() {
+  rsync -aP --delete-before * `cat $targetfile`
+}
+
+echo '==============='
+echo 'Initial sync...'
+echo '==============='
+do_sync
+
+fswatch -or --exclude='\.git/' . | while read line
+do
+  echo -e "\n\n"
+  echo '=========='
+  echo 'Syncing...'
+  echo '=========='
+  do_sync
+done
