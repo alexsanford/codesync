@@ -2,14 +2,10 @@
 
 set -e
 
-## Usage: codesync [targetfile]
+## Usage: codesync [<sources>...] <targetfile>
 
-targetfile='.codesync-target'
-
-if [ ! -z $1 ]
-then
-  targetfile=$1
-fi
+targetfile=$1
+dest=$2
 
 if [ ! -e $targetfile ]
 then
@@ -17,8 +13,38 @@ then
   exit 1
 fi
 
+if [ -z $dest ]
+then
+  echo "Cannot find $dest destination directory!"
+  exit 1
+fi
+
+#rsync_args='-aP --delete-before --exclude .git --exclude node_modules --exclude vendor'
+rsync_args='-aP --delete-before --exclude .git --exclude node_modules'
+
 function do_sync() {
-  rsync -aP --delete-before * `cat $targetfile`
+  while read line
+  do
+    # Expand variables
+    line=`eval echo $line`
+
+    # If rsync fails, try again
+    fail_count=5
+    while ! rsync `echo $rsync_args` `echo $line`
+    do
+      fail_count=$(( fail_count - 1 ))
+
+      if [ $fail_count -eq 0 ]
+      then
+        echo "Failed 5 times, exiting"
+        exit 1
+      fi
+
+
+      echo "Failed! Retrying in 2s..."
+      sleep 2
+    done
+  done < $targetfile
 }
 
 echo '==============='
@@ -31,6 +57,7 @@ do
   echo -e "\n\n"
   echo '=========='
   echo 'Syncing...'
+  date
   echo '=========='
   do_sync
 done
